@@ -17,11 +17,64 @@
 #include <mutex>  // NOLINT
 #include <unordered_map>
 #include <vector>
+#include <memory>
 
 #include "common/config.h"
 #include "common/macros.h"
 
 namespace bustub {
+
+using Key_t = frame_id_t;
+
+struct LinkList {
+  std::shared_ptr<LinkList> pre_{}, next_{};
+  Key_t key_{};
+  LinkList() = default;
+  explicit LinkList(Key_t _key) : key_(_key) {}
+};
+
+class LRUCache {
+public:
+  std::unordered_map<Key_t, std::shared_ptr<LinkList>> mp_;
+  std::shared_ptr<LinkList> head_{}, tail_{};
+
+  LRUCache() {
+    head_ = std::make_shared<LinkList>();
+    tail_ = std::make_shared<LinkList>();
+    head_->next_ = tail_;
+    tail_->pre_ = head_;
+  }
+
+  bool Remove(const std::shared_ptr<LinkList>& list) {
+    if (list != nullptr){
+      list->next_->pre_ = list->pre_;
+      list->pre_->next_ = list->next_;
+      return true;
+    }
+    return false;
+  }
+
+  void MoveToEnd(const std::shared_ptr<LinkList>& list) {
+    if (list != nullptr){
+      tail_->pre_->next_ = list;
+      list->pre_ = tail_->pre_;
+      list->next_ = tail_;
+      tail_->pre_ = list;
+    }
+  }
+
+  Key_t Evict(std::unordered_map<Key_t, bool>& evictable) {
+    std::shared_ptr<LinkList> curr = head_->next_;
+    while(curr != tail_ && !evictable[curr->key_]){
+      curr = curr->next_;
+    }
+    if (evictable[curr->key_]){
+      Remove(curr);
+      return curr->key_;
+    }
+    return -1;
+  }
+};
 
 /**
  * LRUKReplacer implements the LRU-k replacement policy.
@@ -136,10 +189,15 @@ class LRUKReplacer {
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
   [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
+  size_t curr_size_{0};
+  size_t replacer_size_;
+  size_t k_;
   std::mutex latch_;
+
+  std::unordered_map<Key_t, int> accesses_;
+  std::unordered_map<Key_t, bool> evictable_;
+  LRUCache q_;
+  LRUCache qk_;
 };
 
 }  // namespace bustub

@@ -177,5 +177,8 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   }
 
   // TODO(student): You may add additional private members and helper functions
+  auto GetFreeFrame() -> frame_id_t;
+
+  auto CheckAllUnPined() -> bool;
 };
 }  // namespace bustub

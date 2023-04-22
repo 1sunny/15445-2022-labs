@@ -27,7 +27,7 @@ namespace bustub {
 using Key_t = frame_id_t;
 
 struct LinkList {
-  std::shared_ptr<LinkList> pre_{}, next_{};
+  LinkList *pre_{}, *next_{};
   Key_t key_{};
   LinkList() = default;
   explicit LinkList(Key_t _key) : key_(_key) {}
@@ -35,17 +35,21 @@ struct LinkList {
 
 class LRUCache {
  public:
-  std::unordered_map<Key_t, std::shared_ptr<LinkList>> mp_;
-  std::shared_ptr<LinkList> head_{}, tail_{};
+  LinkList *head_{}, *tail_{};
+
+  ~LRUCache() {
+    delete head_;
+    delete tail_;
+  }
 
   LRUCache() {
-    head_ = std::make_shared<LinkList>();
-    tail_ = std::make_shared<LinkList>();
+    head_ = new LinkList;
+    tail_ = new LinkList;
     head_->next_ = tail_;
     tail_->pre_ = head_;
   }
 
-  auto Remove(const std::shared_ptr<LinkList> &list) -> bool {
+  auto Remove(LinkList *list) -> bool {
     if (list != nullptr) {
       list->next_->pre_ = list->pre_;
       list->pre_->next_ = list->next_;
@@ -54,7 +58,7 @@ class LRUCache {
     return false;
   }
 
-  void MoveToEnd(const std::shared_ptr<LinkList> &list) {
+  void MoveToEnd(LinkList *list) {
     if (list != nullptr) {
       tail_->pre_->next_ = list;
       list->pre_ = tail_->pre_;
@@ -64,7 +68,7 @@ class LRUCache {
   }
 
   auto Evict(std::unordered_map<Key_t, bool> *evictable) -> Key_t {
-    std::shared_ptr<LinkList> curr = head_->next_;
+    LinkList *curr = head_->next_;
     while (curr != tail_ && !(*evictable)[curr->key_]) {
       curr = curr->next_;
     }
@@ -105,7 +109,7 @@ class LRUKReplacer {
    *
    * @brief Destroys the LRUReplacer.
    */
-  ~LRUKReplacer() = default;
+  ~LRUKReplacer();
 
   /**
    * TODO(P1): Add implementation
@@ -196,8 +200,9 @@ class LRUKReplacer {
 
   std::unordered_map<Key_t, int> accesses_;
   std::unordered_map<Key_t, bool> evictable_;
-  LRUCache q_;
-  LRUCache qk_;
+  std::unordered_map<Key_t, LinkList *> mp_;
+  LRUCache *q_;
+  LRUCache *qk_;
 };
 
 }  // namespace bustub

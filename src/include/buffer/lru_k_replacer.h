@@ -14,10 +14,10 @@
 
 #include <limits>
 #include <list>
+#include <memory>
 #include <mutex>  // NOLINT
 #include <unordered_map>
 #include <vector>
-#include <memory>
 
 #include "common/config.h"
 #include "common/macros.h"
@@ -34,7 +34,7 @@ struct LinkList {
 };
 
 class LRUCache {
-public:
+ public:
   std::unordered_map<Key_t, std::shared_ptr<LinkList>> mp_;
   std::shared_ptr<LinkList> head_{}, tail_{};
 
@@ -45,8 +45,8 @@ public:
     tail_->pre_ = head_;
   }
 
-  bool Remove(const std::shared_ptr<LinkList>& list) {
-    if (list != nullptr){
+  auto Remove(const std::shared_ptr<LinkList> &list) -> bool {
+    if (list != nullptr) {
       list->next_->pre_ = list->pre_;
       list->pre_->next_ = list->next_;
       return true;
@@ -54,8 +54,8 @@ public:
     return false;
   }
 
-  void MoveToEnd(const std::shared_ptr<LinkList>& list) {
-    if (list != nullptr){
+  void MoveToEnd(const std::shared_ptr<LinkList> &list) {
+    if (list != nullptr) {
       tail_->pre_->next_ = list;
       list->pre_ = tail_->pre_;
       list->next_ = tail_;
@@ -63,12 +63,12 @@ public:
     }
   }
 
-  Key_t Evict(std::unordered_map<Key_t, bool>& evictable) {
+  auto Evict(std::unordered_map<Key_t, bool> *evictable) -> Key_t {
     std::shared_ptr<LinkList> curr = head_->next_;
-    while(curr != tail_ && !evictable[curr->key_]){
+    while (curr != tail_ && !(*evictable)[curr->key_]) {
       curr = curr->next_;
     }
-    if (evictable[curr->key_]){
+    if ((*evictable)[curr->key_]) {
       Remove(curr);
       return curr->key_;
     }

@@ -12,8 +12,10 @@
 
 #include <queue>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "buffer/buffer_pool_manager_instance.h"
 #include "concurrency/transaction.h"
 #include "storage/index/index_iterator.h"
 #include "storage/page/b_plus_tree_internal_page.h"
@@ -74,8 +76,47 @@ class BPlusTree {
   // read data from file and remove one by one
   void RemoveFromFile(const std::string &file_name, Transaction *transaction = nullptr);
 
+  // expose for test purpose
+  auto FindLeafPage(const KeyType &key, bool leftMost = false) -> Page *;
+
+  auto Check(bool force = false) -> bool;
+  bool open_check_ = true;
+
+  auto IsBalanced(page_id_t pid) -> int;
+  auto IsPageCorr(page_id_t pid, std::pair<KeyType, KeyType> &out) -> bool;
+
  private:
+  void StartNewTree(const KeyType &key, const ValueType &value);
+
+  auto InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction = nullptr) -> bool;
+
+  void InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node,
+                        Transaction *transaction = nullptr);
+
+  template <typename N>
+  auto Split(N *node) -> N *;
+
+  template <typename N>
+  auto CoalesceOrRedistribute(N *node, Transaction *transaction = nullptr) -> bool;
+
+  template <typename N>
+  auto Coalesce(N **neighbor_node, N **node, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> **parent,
+                int left_sibling, Transaction *transaction = nullptr) -> bool;
+
+  template <typename N>
+  void Redistribute(N *sibling, N *node, int left_sibling);
+
+  auto AdjustRoot(BPlusTreePage *node) -> bool;
+
   void UpdateRootPageId(int insert_record = 0);
+
+  /* my function */
+  auto FetchPage(page_id_t page_id) -> BPlusTreePage *;
+
+  void GetParent(BPlusTreePage *page, InternalPage **parent_tree_page);
+
+  template <typename N>
+  auto FindSibling(N *node, N **sibling) -> bool;
 
   /* Debug Routines for FREE!! */
   void ToGraph(BPlusTreePage *page, BufferPoolManager *bpm, std::ofstream &out) const;
@@ -86,6 +127,7 @@ class BPlusTree {
   std::string index_name_;
   page_id_t root_page_id_;
   BufferPoolManager *buffer_pool_manager_;
+  BufferPoolManagerInstance *buffer_pool_manager_instance_;
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;

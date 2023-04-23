@@ -52,6 +52,8 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   /** @brief Return the pointer to all the pages in the buffer pool. */
   auto GetPages() -> Page * { return pages_; }
 
+  auto CheckAllUnPined() -> bool;
+
  protected:
   /**
    * TODO(P1): Add implementation
@@ -178,7 +180,5 @@ class BufferPoolManagerInstance : public BufferPoolManager {
 
   // TODO(student): You may add additional private members and helper functions
   auto GetFreeFrame() -> frame_id_t;
-
-  auto CheckAllUnPined() -> bool;
 };
 }  // namespace bustub

@@ -22,7 +22,7 @@ INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::IsEnd() -> bool { return leaf_page_ == nullptr || index_ == leaf_page_->GetSize(); }
+auto INDEXITERATOR_TYPE::IsEnd() -> bool { return leaf_page_ == nullptr; }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> const MappingType & { return leaf_page_->GetItem(index_); }

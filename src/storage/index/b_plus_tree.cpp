@@ -413,7 +413,10 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   }
   Page *page = FindLeafPage(key, false);
   auto *tree_page = reinterpret_cast<LeafPage *>(page);
-  int index = tree_page->KeyIndex(key, comparator_);  // TODO(ahardway): 没有这个 key 的情况?
+  int index = tree_page->KeyIndex(key, comparator_);
+  if (index == tree_page->GetSize()) {
+    return End();
+  }
   return IndexIterator(tree_page, index, buffer_pool_manager_);
 }
 

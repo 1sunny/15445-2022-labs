@@ -29,7 +29,7 @@ using Key_t = frame_id_t;
 struct LinkList {
   LinkList *pre_{}, *next_{};
   Key_t key_{};
-  LinkList() = default;
+  LinkList() { key_ = -1; }
   explicit LinkList(Key_t _key) : key_(_key) {}
 };
 

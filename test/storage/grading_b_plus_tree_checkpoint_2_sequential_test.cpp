@@ -5,10 +5,10 @@
 #include <algorithm>
 #include <cstdio>
 
-#include "test_util.h"  // NOLINT
 #include "buffer/buffer_pool_manager_instance.h"
 #include "gtest/gtest.h"
 #include "storage/index/b_plus_tree.h"
+#include "test_util.h"  // NOLINT
 
 namespace bustub {
 

@@ -8,10 +8,10 @@
 #include <future>  // NOLINT
 #include <thread>  // NOLINT
 
-#include "test_util.h"  // NOLINT
 #include "buffer/buffer_pool_manager.h"
 #include "gtest/gtest.h"
 #include "storage/index/b_plus_tree.h"
+#include "test_util.h"  // NOLINT
 
 // Macro for time out mechanism
 #define TEST_TIMEOUT_BEGIN                           \

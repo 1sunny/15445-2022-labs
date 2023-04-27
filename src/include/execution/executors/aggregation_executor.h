@@ -55,6 +55,10 @@ class SimpleAggregationHashTable {
         case AggregationType::SumAggregate:
         case AggregationType::MinAggregate:
         case AggregationType::MaxAggregate:
+          // Hint: When performing aggregation on an empty table,
+          // CountStarAggregate should return zero and
+          // all other aggregate types should return integer_null.
+          // This is why GenerateInitialAggregateValue initializes most aggregate values as NULL.
           // Others starts at null.
           values.emplace_back(ValueFactory::GetNullValueByType(TypeId::INTEGER));
           break;
@@ -74,11 +78,48 @@ class SimpleAggregationHashTable {
     for (uint32_t i = 0; i < agg_exprs_.size(); i++) {
       switch (agg_types_[i]) {
         case AggregationType::CountStarAggregate:
-        case AggregationType::CountAggregate:
-        case AggregationType::SumAggregate:
-        case AggregationType::MinAggregate:
-        case AggregationType::MaxAggregate:
+          // input.aggregates_[i] = 1
+          result->aggregates_[i] = result->aggregates_[i].Add(input.aggregates_[i]);
           break;
+        case AggregationType::CountAggregate: {
+          if (!input.aggregates_[i].IsNull()) {
+            if (result->aggregates_[i].IsNull()) {
+              result->aggregates_[i] = Value(TypeId::INTEGER, 1);
+            } else {
+              result->aggregates_[i] = result->aggregates_[i].Add(Value(TypeId::INTEGER, 1));
+            }
+          }
+          break;
+        }
+        case AggregationType::SumAggregate:
+          if (!input.aggregates_[i].IsNull()) {
+            if (result->aggregates_[i].IsNull()) {
+              result->aggregates_[i] = input.aggregates_[i];
+            } else {
+              result->aggregates_[i] = result->aggregates_[i].Add(input.aggregates_[i]);
+            }
+          }
+          break;
+        case AggregationType::MinAggregate:
+          if (!input.aggregates_[i].IsNull()) {
+            if (result->aggregates_[i].IsNull()) {
+              result->aggregates_[i] = input.aggregates_[i];
+            } else {
+              result->aggregates_[i] = result->aggregates_[i].Min(input.aggregates_[i]);
+            }
+          }
+          break;
+        case AggregationType::MaxAggregate:
+          if (!input.aggregates_[i].IsNull()) {
+            if (result->aggregates_[i].IsNull()) {
+              result->aggregates_[i] = input.aggregates_[i];
+            } else {
+              result->aggregates_[i] = result->aggregates_[i].Max(input.aggregates_[i]);
+            }
+          }
+          break;
+        default:
+          UNREACHABLE("unknown aggregate type");
       }
     }
   }
@@ -201,8 +242,8 @@ class AggregationExecutor : public AbstractExecutor {
   /** The child executor that produces tuples over which the aggregation is computed */
   std::unique_ptr<AbstractExecutor> child_;
   /** Simple aggregation hash table */
-  // TODO(Student): Uncomment SimpleAggregationHashTable aht_;
+  SimpleAggregationHashTable aht_;
   /** Simple aggregation hash table iterator */
-  // TODO(Student): Uncomment SimpleAggregationHashTable::Iterator aht_iterator_;
+  SimpleAggregationHashTable::Iterator aht_iterator_;
 };
 }  // namespace bustub

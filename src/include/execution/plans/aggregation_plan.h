@@ -33,6 +33,7 @@ enum class AggregationType { CountStarAggregate, CountAggregate, SumAggregate, M
  * For example, COUNT(), SUM(), MIN() and MAX().
  *
  * NOTE: To simplify this project, AggregationPlanNode must always have exactly one child.
+ * TODO(ahardway): 什么情况不止一个 child ?
  */
 class AggregationPlanNode : public AbstractPlanNode {
  public:

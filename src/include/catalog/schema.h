@@ -33,7 +33,7 @@ class Schema {
    * @param columns columns that describe the schema's individual columns
    */
   explicit Schema(const std::vector<Column> &columns);
-
+  // 复制 attrs 中指定位置字段
   static auto CopySchema(const Schema *from, const std::vector<uint32_t> &attrs) -> Schema {
     std::vector<Column> cols;
     cols.reserve(attrs.size());

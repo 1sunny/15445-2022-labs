@@ -92,9 +92,11 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
   auto it = mp_.find(frame_id);
   BUSTUB_ASSERT(it != mp_.end(), "it == mp_.end()");
   if (cnt < k_) {
-    BUSTUB_ASSERT(q_->Remove(it->second), "q_->Remove(it->second)");
+    bool status = q_->Remove(it->second);
+    BUSTUB_ASSERT(status, "q_->Remove(it->second)");
   } else {
-    BUSTUB_ASSERT(qk_->Remove(it->second), "qk_->Remove(it->second)");
+    bool status = qk_->Remove(it->second);
+    BUSTUB_ASSERT(status, "qk_->Remove(it->second)");
   }
   curr_size_--;
   delete it->second;

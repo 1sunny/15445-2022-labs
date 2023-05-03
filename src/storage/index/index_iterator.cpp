@@ -32,7 +32,9 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
   assert(index_ < leaf_page_->GetSize());
   if (++index_ == leaf_page_->GetSize()) {
     page_id_t next_page_id = leaf_page_->GetNextPageId();
+    bpm_->FetchPage(leaf_page_->GetPageId())->RUnlatch();
     // fix bug: unpin here
+    bpm_->UnpinPage(leaf_page_->GetPageId(), false);
     bpm_->UnpinPage(leaf_page_->GetPageId(), false);
     if (next_page_id == INVALID_PAGE_ID) {
       leaf_page_ = nullptr;
@@ -40,6 +42,7 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
       // bpm_->UnpinPage(leaf_page_->GetPageId(), false);
       index_ = 0;
       Page *next_page = bpm_->FetchPage(next_page_id);
+      next_page->RLatch();
       leaf_page_ = reinterpret_cast<LeafPage *>(next_page->GetData());
     }
   }

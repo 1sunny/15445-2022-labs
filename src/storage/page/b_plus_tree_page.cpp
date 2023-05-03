@@ -70,4 +70,16 @@ void BPlusTreePage::SetPageId(page_id_t page_id) { page_id_ = page_id; }
  */
 void BPlusTreePage::SetLSN(lsn_t lsn) { lsn_ = lsn; }
 
+auto BPlusTreePage::IsSafe(OpType op) -> bool {
+  if (op == OpType::GET) {
+    UNREACHABLE("op == OpType::GET");
+  }
+  if (op == OpType::INSERT) {
+    return IsLeafPage() ? size_ + 1 < max_size_ : size_ < max_size_;
+  }
+  if (op == OpType::DELETE) {
+    return size_ > GetMinSize();
+  }
+  UNREACHABLE("Unknown OpType");
+}
 }  // namespace bustub

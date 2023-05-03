@@ -19,8 +19,78 @@
 #include "test_util.h"  // NOLINT
 
 namespace bustub {
+TEST(BPlusTreeDeleteTests, Insert_Delete_Check) {
+  setbuf(stdout, nullptr);
+  int loop = 100;
+  for (int test = 0; test < loop; ++test) {
+    // create KeyComparator and index schema
+    auto key_schema = ParseCreateStatement("a bigint");
+    GenericComparator<64> comparator(key_schema.get());
 
-TEST(BPlusTreeTests, DISABLED_DeleteTest1) {
+    DiskManager *disk_manager = new DiskManager("test.db");
+    BufferPoolManager *bpm = new BufferPoolManagerInstance(30, disk_manager);
+    // create b+ tree
+    BPlusTree<GenericKey<64>, RID, GenericComparator<64>> tree("foo_pk", bpm, comparator, 3, 3);
+    GenericKey<64> index_key;
+    RID rid;
+    // create transaction
+    Transaction *transaction = new Transaction(0);
+
+    // create and fetch header_page
+    page_id_t page_id;
+    auto header_page = bpm->NewPage(&page_id);
+    (void)header_page;
+
+    std::vector<int64_t> keys;
+    int scale = 1000;  // at first, set a small number(6-10) to find bug
+    for (int i = 0; i < scale; ++i) {
+      keys.push_back(i + 1);
+    }
+    std::random_shuffle(keys.begin(), keys.end());
+    std::cout << "\n--- to insert: ";
+    for (auto key : keys) {
+      std::cout << key << ' ';
+    }
+    std::cout << '\n';
+    std::vector<int64_t> c_keys = keys;
+    std::reverse(c_keys.begin(), c_keys.end());
+    for (auto key : keys) {
+      int64_t value = key & 0xFFFFFFFF;
+      rid.Set((int32_t)(key >> 32), value);
+      index_key.SetFromInteger(key);
+      tree.Insert(index_key, rid, transaction);
+    }
+
+    std::cout << "--- insert end, delete start ---\n";
+    for (auto key : keys) {
+      index_key.SetFromInteger(key);
+      std::cout << "remove: " << key << '\n';
+      tree.Remove(index_key, transaction);
+      c_keys.pop_back();
+      std::vector<RID> rids;
+      // check key & value pairs
+      std::cout << "checking remaining key & value ";
+      for (auto key2 : c_keys) {
+        rids.clear();
+        index_key.SetFromInteger(key2);
+        tree.GetValue(index_key, &rids);
+        EXPECT_EQ(rids.size(), 1);
+
+        int64_t value = key2 & 0xFFFFFFFF;
+        EXPECT_EQ(rids[0].GetSlotNum(), value);
+      }
+      std::cout << " -> ok\n";
+    }
+    bpm->UnpinPage(HEADER_PAGE_ID, true);
+    delete transaction;
+    delete disk_manager;
+    delete bpm;
+    remove("test.db");
+    remove("test.log");
+  }
+}
+
+TEST(BPlusTreeTests, DeleteTest1) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -92,7 +162,7 @@ TEST(BPlusTreeTests, DISABLED_DeleteTest1) {
   remove("test.log");
 }
 
-TEST(BPlusTreeTests, DISABLED_DeleteTest2) {
+TEST(BPlusTreeTests, DeleteTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());

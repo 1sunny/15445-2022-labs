@@ -20,6 +20,7 @@
 #include "storage/index/index_iterator.h"
 #include "storage/page/b_plus_tree_internal_page.h"
 #include "storage/page/b_plus_tree_leaf_page.h"
+#include "storage/page/b_plus_tree_page.h"
 
 namespace bustub {
 
@@ -77,10 +78,11 @@ class BPlusTree {
   void RemoveFromFile(const std::string &file_name, Transaction *transaction = nullptr);
 
   // expose for test purpose
-  auto FindLeafPage(const KeyType &key, bool leftMost = false) -> Page *;
+  auto FindLeafPage(const KeyType &key, bool leftMost = false, OpType op = OpType::GET,
+                    Transaction *transaction = nullptr) -> Page *;
 
   auto Check(bool force = false) -> bool;
-  bool open_check_ = true;
+  bool open_check_ = false;
 
   auto IsBalanced(page_id_t pid) -> int;
   auto IsPageCorr(page_id_t pid, std::pair<KeyType, KeyType> &out) -> bool;
@@ -97,7 +99,7 @@ class BPlusTree {
   auto Split(N *node) -> N *;
 
   template <typename N>
-  auto CoalesceOrRedistribute(N *node, Transaction *transaction = nullptr) -> bool;
+  auto CoalesceOrRedistribute(N *node, Transaction *transaction) -> bool;
 
   template <typename N>
   auto Coalesce(N **neighbor_node, N **node, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> **parent,
@@ -116,7 +118,11 @@ class BPlusTree {
   void GetParent(BPlusTreePage *page, InternalPage **parent_tree_page);
 
   template <typename N>
-  auto FindSibling(N *node, N **sibling) -> bool;
+  auto FindSibling(N *node, N **sibling, Transaction *transaction) -> bool;
+
+  auto CrabbingFetchPage(page_id_t page_id, OpType op, page_id_t prev, Transaction *transaction) -> BPlusTreePage *;
+
+  auto FreePagesInTransaction(bool exclusive, Transaction *transaction, page_id_t cur);
 
   /* Debug Routines for FREE!! */
   void ToGraph(BPlusTreePage *page, BufferPoolManager *bpm, std::ofstream &out) const;
@@ -131,6 +137,7 @@ class BPlusTree {
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
+  std::mutex root_id_mutex_;
 };
 
 }  // namespace bustub

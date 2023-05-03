@@ -139,7 +139,10 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
   if (!page_table_->Find(page_id, frame_id)) {
     return false;
   }
-  BUSTUB_ENSURE(pages_[frame_id].GetPinCount() > 0, "page id: " + std::to_string(pages_[frame_id].GetPageId()));
+  // BUSTUB_ENSURE(pages_[frame_id].GetPinCount() > 0, "page id: " + std::to_string(pages_[frame_id].GetPageId()));
+  if (pages_[frame_id].pin_count_ == 0) {
+    return false;
+  }
   if (--pages_[frame_id].pin_count_ == 0) {
     // the frame should be evictable by the replacer
     replacer_->SetEvictable(frame_id, true);
@@ -181,7 +184,7 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   // pinned and cannot be deleted, return false immediately
   Page *page = &pages_[frame_id];
   if (page->pin_count_ > 0) {
-    UNREACHABLE("page->pin_count_ > 0");
+    // UNREACHABLE("page->pin_count_ > 0"); 单线程时不会到这,多线程有可能
     return false;
   }
   // 不检查 dirty ? 需要!!!

@@ -275,6 +275,8 @@ auto BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) -
   GetParent(node, &parent);  // #2
   bool to_delete_parent = Coalesce(&sibling, &node, &parent, is_left_sibling, transaction);
   // buffer_pool_manager_->UnpinPage(sibling->GetPageId(), true); // #1
+  // 这里必须 unpin parent page, txn 的 page set 中一定有 parent page (因为 parent 不安全),
+  // 这里 unpin 了并不影响 txn 的 page set 中的 unpin
   buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);  // #2
   if (to_delete_parent) {
     // buffer_pool_manager_->DeletePage(parent->GetPageId());
@@ -368,6 +370,8 @@ auto BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) -> bool {
     root_page_id_ = new_root_page_id;
     UpdateRootPageId();
     // new_root一定在 transaction page set 中 ?
+    // ! 因为 old_root_node->GetSize() = 1, 那么那个 only child 肯定是在 page set中
+    // 所以可以等到在 FreePagesInTransaction 中再释放 root_id_mutex_
     auto *new_root = FetchPage(new_root_page_id);  // #1
     new_root->SetParentPageId(INVALID_PAGE_ID);
     buffer_pool_manager_->UnpinPage(new_root_page_id, true);  // #1
@@ -377,6 +381,7 @@ auto BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) -> bool {
   if (old_root_node->IsLeafPage()) {
     BUSTUB_ENSURE(old_root_node->GetSize() == 0, "old_root_node->GetSize() != 0");
     root_page_id_ = INVALID_PAGE_ID;
+    // 这里应该释放 root_id_mutex_, 放到 FreePagesInTransaction 中了
     UpdateRootPageId();
     return true;
   }
@@ -478,10 +483,11 @@ auto BPLUSTREE_TYPE::CrabbingFetchPage(page_id_t page_id, OpType op, page_id_t p
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::FreePagesInTransaction(bool exclusive, Transaction *transaction, page_id_t cur) {
-  if (transaction == nullptr) {
+  if (transaction == nullptr) {  // iterator Begin
     BUSTUB_ENSURE(!exclusive, "exclusive");
     buffer_pool_manager_->FetchPage(cur)->RUnlatch();
     buffer_pool_manager_->UnpinPage(cur, false);
+    // 之前 fetch 了一次,所以下面这一次才是 unpin
     buffer_pool_manager_->UnpinPage(cur, false);
     if (cur == root_page_id_) {
       root_id_mutex_.unlock();
@@ -500,10 +506,11 @@ auto BPLUSTREE_TYPE::FreePagesInTransaction(bool exclusive, Transaction *transac
       buffer_pool_manager_->DeletePage(page_id);
       transaction->GetDeletedPageSet()->erase(page_id);
     }
-    if (page_id == root_page_id_) {
+    if (page_id == root_page_id_) {  // root_page_id_安全后释放 root_id_mutex_
       root_id_mutex_.unlock();
     }
   }
+  // remove后 root_page_id 可能变为 INVALID_PAGE_ID, 应该 unlock
   if (root_page_id_ == INVALID_PAGE_ID) {
     root_id_mutex_.unlock();
   }

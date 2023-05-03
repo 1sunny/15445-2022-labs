@@ -141,6 +141,7 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
   }
   // BUSTUB_ENSURE(pages_[frame_id].GetPinCount() > 0, "page id: " + std::to_string(pages_[frame_id].GetPageId()));
   if (pages_[frame_id].pin_count_ == 0) {
+    // 单线程时不会到这,多线程有可能
     return false;
   }
   if (--pages_[frame_id].pin_count_ == 0) {

@@ -365,3 +365,25 @@ class Transaction {
 };
 
 }  // namespace bustub
+
+template <>
+struct fmt::formatter<bustub::IsolationLevel> : formatter<std::string_view> {
+  // parse is inherited from formatter<string_view>.
+  template <typename FormatContext>
+  auto format(bustub::IsolationLevel x, FormatContext &ctx) const {
+    using bustub::IsolationLevel;
+    string_view name = "unknown";
+    switch (x) {
+      case IsolationLevel::READ_UNCOMMITTED:
+        name = "READ_UNCOMMITTED";
+        break;
+      case IsolationLevel::READ_COMMITTED:
+        name = "READ_COMMITTED";
+        break;
+      case IsolationLevel::REPEATABLE_READ:
+        name = "REPEATABLE_READ";
+        break;
+    }
+    return formatter<string_view>::format(name, ctx);
+  }
+};

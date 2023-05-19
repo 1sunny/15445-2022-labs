@@ -53,5 +53,7 @@ class SeqScanExecutor : public AbstractExecutor {
   ExecutorContext *exec_ctx_;
   TableInfo *table_info_;
   TableIterator cur_;
+  Transaction *txn_;
+  LockManager *lock_manager_;
 };
 }  // namespace bustub

@@ -22,10 +22,23 @@ InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *
       plan_(plan),
       exec_ctx_(exec_ctx),
       table_info_(exec_ctx->GetCatalog()->GetTable(plan_->TableOid())),
-      child_executor_(std::move(child_executor)) {}
+      child_executor_(std::move(child_executor)),
+      txn_(exec_ctx->GetTransaction()),
+      lock_manager_(exec_ctx_->GetLockManager()) {}
 
 void InsertExecutor::Init() {
   child_executor_->Init();
+  if (!txn_->IsTableExclusiveLocked(table_info_->oid_) &&
+      !txn_->IsTableSharedIntentionExclusiveLocked(table_info_->oid_)) {
+    try {
+      bool locked = lock_manager_->LockTable(txn_, LockManager::LockMode::INTENTION_EXCLUSIVE, table_info_->oid_);
+      if (!locked) {
+        throw ExecutionException("INTENTION_EXCLUSIVE LockTable Fail");
+      }
+    } catch (TransactionAbortException e) {
+      throw ExecutionException(e.GetInfo());
+    }
+  }
   inserted_ = 0;
 }
 
@@ -46,15 +59,28 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
       inserted_++;  // fix BUG
       return true;
     }
-    inserted_++;
-    // 通过 Catalog 获取表对应的 indexes
-    const std::vector<IndexInfo *> indexes = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
-    table_info_->table_->InsertTuple(child_tuple, &child_rid, txn);
-    // 向该表的所有索引中加入该 tuple
-    for (auto index_info : indexes) {
-      std::unique_ptr<Index> &index = index_info->index_;
-      index->InsertEntry(child_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index->GetKeyAttrs()),
-                         child_rid, txn);
+    if (table_info_->table_->InsertTuple(child_tuple, &child_rid, txn)) {
+      inserted_++;
+      try {
+		// 先插入了再对row上锁,不然rid还没确定,这也是会什么会产生幻读现象的原因
+        bool locked = lock_manager_->LockRow(txn_, LockManager::LockMode::EXCLUSIVE, table_info_->oid_, child_rid);
+        if (!locked) {
+          throw ExecutionException("EXCLUSIVE LockRow Fail");
+        }
+      } catch (TransactionAbortException e) {
+        throw ExecutionException(e.GetInfo());
+      }
+      // 通过 Catalog 获取表对应的 indexes
+      const std::vector<IndexInfo *> indexes = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
+      // 向该表的所有索引中加入该 tuple
+      for (auto index_info : indexes) {
+        std::unique_ptr<Index> &index = index_info->index_;
+        index->InsertEntry(
+            child_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index->GetKeyAttrs()), child_rid,
+            txn);
+        // txn_->GetIndexWriteSet()->emplace_back(child_rid, table_info_->oid_, WType::INSERT, child_tuple,
+        // index_info->index_oid_, exec_ctx_->GetCatalog());
+      }
     }
   }
 }

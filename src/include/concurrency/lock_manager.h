@@ -14,9 +14,12 @@
 
 #include <algorithm>
 #include <condition_variable>  // NOLINT
+#include <functional>
 #include <list>
+#include <map>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -64,7 +67,7 @@ class LockManager {
   class LockRequestQueue {
    public:
     /** List of lock requests for the same resource (table or row) */
-    std::list<LockRequest *> request_queue_;
+    std::list<std::shared_ptr<LockRequest>> request_queue_;
     /** For notifying blocked transactions on this rid */
     std::condition_variable cv_;
     /** txn_id of an upgrading transaction (if any) */
@@ -312,8 +315,69 @@ class LockManager {
   std::atomic<bool> enable_cycle_detection_;
   std::thread *cycle_detection_thread_;
   /** Waits-for graph representation. */
-  std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
+  std::map<txn_id_t, std::set<txn_id_t>> waits_for_;
+  // std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
+
   std::mutex waits_for_latch_;
+  std::map<txn_id_t, bool> vis_;
+  std::unordered_map<txn_id_t, txn_id_t> parent_;
+  std::set<txn_id_t, std::greater<>> st_;
+
+  std::unordered_map<LockMode, std::unordered_map<LockMode, bool>> compatible_{
+      {LockMode::INTENTION_SHARED,
+       {{LockMode::INTENTION_SHARED, true},
+        {LockMode::INTENTION_EXCLUSIVE, true},
+        {LockMode::SHARED, true},
+        {LockMode::SHARED_INTENTION_EXCLUSIVE, true}}},
+      {LockMode::INTENTION_EXCLUSIVE, {{LockMode::INTENTION_SHARED, true}, {LockMode::INTENTION_EXCLUSIVE, true}}},
+      {LockMode::SHARED, {{LockMode::INTENTION_SHARED, true}, {LockMode::SHARED, true}}},
+      {LockMode::SHARED_INTENTION_EXCLUSIVE, {{LockMode::INTENTION_SHARED, true}}},
+      {LockMode::EXCLUSIVE, {}},
+  };
+
+  std::unordered_map<LockMode, std::unordered_map<LockMode, bool>> upgrade_{
+      {LockMode::SHARED, {{LockMode::INTENTION_SHARED, true}}},
+      {LockMode::EXCLUSIVE,
+       {{LockMode::INTENTION_SHARED, true},
+        {LockMode::SHARED, true},
+        {LockMode::INTENTION_EXCLUSIVE, true},
+        {LockMode::SHARED_INTENTION_EXCLUSIVE, true}}},
+      {LockMode::INTENTION_EXCLUSIVE, {{LockMode::INTENTION_SHARED, true}}},
+      {LockMode::SHARED_INTENTION_EXCLUSIVE,
+       {{LockMode::INTENTION_SHARED, true}, {LockMode::SHARED, true}, {LockMode::INTENTION_EXCLUSIVE, true}}}};
+
+  enum class LockType { TABLE, ROW };
+
+  auto CheckIsolationLevel(Transaction *txn, LockMode lock_mode);
+
+  void AddLockToTransaction(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid,
+                            LockType lock_type);
+
+  void RemoveLockFromTransaction(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid,
+                                 LockType lock_type, bool change_state);
+
+  void ChangeTransactionState(Transaction *txn, LockMode unlock_mode);
+
+  auto LM2S(LockMode mode) -> const char *;
+
+  auto CheckCompatibility(Transaction *txn, const std::list<std::shared_ptr<LockRequest>> &list, LockMode lock_mode,
+                          LockType lock_type) -> bool;
+
+  void RemoveLockRequest(Transaction *txn, std::list<std::shared_ptr<LockRequest>> *rq);
+
+  auto HandleLockRequest(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid,
+                         const std::shared_ptr<LockRequest> &lock_request,
+                         const std::shared_ptr<LockRequestQueue> &request_queue, LockType lock_type, std::mutex *mu)
+      -> bool;
+
+  auto LT2S(LockType mode) -> const char *;
+
+  template <typename T>
+  void BuildGraph(std::unordered_map<T, std::shared_ptr<LockRequestQueue>> &map);
+
+  auto Dfs(txn_id_t txn_id) -> txn_id_t;
+
+  auto GetLocked(Transaction *txn, const table_oid_t &oid, const RID &rid, LockType lock_type) -> std::vector<LockMode>;
 };
 
 }  // namespace bustub

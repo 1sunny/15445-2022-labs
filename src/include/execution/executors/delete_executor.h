@@ -63,5 +63,7 @@ class DeleteExecutor : public AbstractExecutor {
   ExecutorContext *exec_ctx_;
   TableInfo *table_info_;
   int deleted_;
+  Transaction *txn_;
+  LockManager *lock_manager_;
 };
 }  // namespace bustub

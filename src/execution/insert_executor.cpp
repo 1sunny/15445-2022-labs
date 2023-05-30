@@ -62,7 +62,7 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     if (table_info_->table_->InsertTuple(child_tuple, &child_rid, txn)) {
       inserted_++;
       try {
-		// 先插入了再对row上锁,不然rid还没确定,这也是会什么会产生幻读现象的原因
+		    // 先插入了再对row上锁,不然rid还没确定,这也是会什么会产生幻读现象的原因
         bool locked = lock_manager_->LockRow(txn_, LockManager::LockMode::EXCLUSIVE, table_info_->oid_, child_rid);
         if (!locked) {
           throw ExecutionException("EXCLUSIVE LockRow Fail");

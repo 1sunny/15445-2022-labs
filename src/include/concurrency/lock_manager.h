@@ -80,14 +80,18 @@ class LockManager {
    * Creates a new lock manager configured for the deadlock detection policy.
    */
   LockManager() {
+#ifndef __EMSCRIPTEN__
     enable_cycle_detection_ = true;
     cycle_detection_thread_ = new std::thread(&LockManager::RunCycleDetection, this);
+#endif
   }
 
   ~LockManager() {
+#ifndef __EMSCRIPTEN__
     enable_cycle_detection_ = false;
     cycle_detection_thread_->join();
     delete cycle_detection_thread_;
+#endif
   }
 
   /**
